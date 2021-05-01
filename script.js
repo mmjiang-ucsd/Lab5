@@ -1,13 +1,29 @@
 // script.js
 
+//===================VARIABLES=======================
+//----------------CANVAS VARIABLES----------------
 const img = new Image(); // used to load image from <input> and draw to canvas
-var canvas = document.getElementById("user-image");
-var ctx = canvas.getContext('2d');
-var img_input = document.getElementById("image-input");
-var form = document.getElementById("generate-meme");
+var canvas = document.getElementById("user-image"); // canvas element
+var ctx = canvas.getContext('2d'); // draws on canvas in 2d
+var img_input = document.getElementById("image-input"); // image input element
+var form = document.getElementById("generate-meme"); // form element
 
-// submit button doesn't have an ID for some reason so we gotta do this
+//----------------TEXT VARIABLES-----------------
+var top = document.getElementById("text-top"); // top text
+var bottom = document.getElementById("text-bottom"); // bottom text
+
+//--------------BUTTONS VARIABLE---------------
+// generate button doesn't have an ID for some reason so we gotta do this
 var buttons = document.getElementsByTagName("button");
+
+//---------VOICE SYNTHESIS VARIABLES-----------
+var voice_selection = document.getElementById("voice-selection");
+var voices = []; // list of voices
+var synth = window.speechSynthesis; // thing that does the speaking
+
+//------------VOLUME VARIABLES----------
+var volume_group = document.getElementById("volume-group");
+var volume = 1;
 
 // when file is changed, load file into img
 img_input.addEventListener('change', () =>{
@@ -21,27 +37,29 @@ img_input.addEventListener('change', () =>{
 })
 
 // Fires whenever the img object loads a new image (such as with img.src =)
+/* on load:
+    clear canvas context
+    toggle submit/clear/read buttons by disabling/enabling as needed
+    fill canvas with black (to add borders on non-square images)
+    draw uploaded image onto canvas with correct width/height, leftmost coordinate, topmost coordinate using generated dimensions from getDimensions()
+*/
 img.addEventListener('load', () => {
-  // TODO
-  /* on load:
-      clear canvas context
-      toggle submit/clear/read buttons by disabling/enabling as needed
-      fill canvas with black (to add borders on non-square images)
-      draw uploaded image onto canvas with correct width/height, leftmost coordinate, topmost coordinate using generated dimensions from getDimensions()
-  */
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = 'black';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   let dimensions = getDimmensions(canvas.width, canvas.height, img.width, img.height);
   ctx.drawImage(img, dimensions['startX'], dimensions['startY'], dimensions['width'], dimensions['height']);
+  buttons[0].disabled = false;  //enable generate button
+  //disable text buttons
+  buttons[1].disabled = true;
+  buttons[2].disabled = true;
 });
 
-form.addEventListener('submit', (event) => {
+// "GENERATE" BUTTON
   /* form: submit
 on submit, generate your meme by grabbing the text in the two inputs with ids text-top and text-bottom, and adding the relevant text to the canvas (note: you should still be able to add text to the canvas without an image uploaded)
 toggle relevant buttons*/
-  let top = document.getElementById("text-top");
-  let bottom = document.getElementById("text-bottom");
+form.addEventListener('submit', (event) => {
   ctx.strokeStyle = 'black';
   ctx.fillStyle = 'white';
   ctx.lineWidth = 2;
@@ -51,8 +69,91 @@ toggle relevant buttons*/
   ctx.strokeText(top.value.toUpperCase(), canvas.width/2, 50);
   ctx.fillText(bottom.value.toUpperCase(), canvas.width/2, 380);
   ctx.strokeText(bottom.value.toUpperCase(), canvas.width/2, 380);
-  buttons[0].disabled = true;
-  event.preventDefault();
+  buttons[0].disabled = true;  // disable generate button
+  // enable clear and read button
+  buttons[1].disabled = false;
+  buttons[2].disabled = false;
+  event.preventDefault();  // prevent form from submitting
+})
+
+// "CLEAR" BUTTON
+  /* button: clear
+  on click, clear the image and/or text present
+  toggle relevant buttons*/
+buttons[1].addEventListener('click', () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  buttons[0].disabled = false;  // enable generate button
+  // disable clear and read button
+  buttons[1].disabled = true;
+  buttons[2].disabled = true;
+})
+
+// populate dropdown list with speech synthesis voices
+function populateVoices() {
+  voice_selection.disabled = false;
+  voice_selection.removeChild(voice_selection.children[0]); // remove default missing message
+  voices = speechSynthesis.getVoices();
+  //console.log(voices);
+
+  // for each voice, create a new option, add it to the list
+  for (let i = 0; i < voices.length; i++){
+    var option = document.createElement('option');
+    option.textContent = `${voices[i].name} (${voices[i].lang})`;  // "VoiceName (Language)"
+    // current option is the default option
+    if (voices[i].default) {
+      option.textContent += ' -- DEFAULT';
+    }
+    // assign proper language attributes
+    option.setAttribute('data-lang', voices[i].lang);
+    option.setAttribute('data-name', voices[i].name);
+    voice_selection.appendChild(option); // add to list
+  }
+}
+// make sure that voices load. not sure why this doesn't work without using "voiceschanged" listener
+speechSynthesis.addEventListener("voiceschanged", populateVoices);
+
+// "READ TEXT" BUTTON
+buttons[2].addEventListener("click", () => {
+  var utter = new SpeechSynthesisUtterance(top.value + " " + bottom.value); // assign text to read
+  //console.log(utter);
+  var selected_voice = voice_selection.selectedOptions[0].getAttribute('data-name');
+  //console.log(voice_selection.selectedOptions[0].getAttribute('data-name'));
+  // find voice info in list and assign it to utter
+  for(let i = 0; i < voices.length; i++) {
+    if(voices[i].name === selected_voice) {
+      utter.voice = voices[i];
+      //console.log(voices[i].name);
+    }
+  }
+  utter.volume = volume;
+  synth.speak(utter);
+})
+
+/*
+div: volume-group (volume slider)
+update the volume value to increase or decrease the volume at which the text is read if the read text button is clicked
+change the volume icons depending on the following volume ranges: (note: you can find these icons in the icons directory)
+volume-level-3: 67-100
+volume-level-2: 34-66
+volume-level-1: 1-33
+volume-level-0: 0
+on any input into the slider
+*/
+volume_group.children[1].addEventListener("input", () => {
+  //update icon
+  if (volume_group.children[1].value <= 100 && volume_group.children[1].value >= 67){
+    volume_group.children[0].src = "icons/volume-level-3.svg";
+  }
+  else if (volume_group.children[1].value <= 66 && volume_group.children[1].value >= 34){
+    volume_group.children[0].src = "icons/volume-level-2.svg";
+  }
+  else if (volume_group.children[1].value <= 33 && volume_group.children[1].value >= 1){
+    volume_group.children[0].src = "icons/volume-level-1.svg";
+  }
+  else {
+    volume_group.children[0].src = "icons/volume-level-0.svg";
+  }
+  volume = volume_group.children[1].value / 100; // volume is 0-1 but value is 0-100
 })
 
 /**
