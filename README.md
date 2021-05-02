@@ -9,4 +9,4 @@ https://mmjiang-ucsd.github.io/Lab5/
 
 ## Part 2:
 
-LINK TO YOUR PART 2 REPOSITORY
+https://github.com/mmjiang-ucsd/github-actions-for-ci/issues/7
