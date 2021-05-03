@@ -6,6 +6,7 @@
 ## Part 1:
 
 https://mmjiang-ucsd.github.io/Lab5/
+(sometimes the voice options may not show up first time, needs a quick refresh)
 
 ## Part 2:
 
